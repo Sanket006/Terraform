@@ -12,10 +12,10 @@ provider "aws" {
 }
 
 resource "aws_instance" "my_instacne" {
-   ami = "ami-02b8269d5e85954ef"
-   instance_type = "t3.small"
+   ami = var.ami
+   instance_type = var.instance_type
     tags = {
         Name = "MyFirstInstance"
-        env = "prod"
+        env = var.env
     }
 }
