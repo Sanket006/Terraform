@@ -5,18 +5,18 @@ provider "aws" {
 resource "aws_instance" "web" {
   ami           = var.ami_id
   instance_type = var.instance_type
-  key_name      = "ajaymumbaikey"
-  vpc_security_group_ids = ["sg-0783875e9e5d14881"]
+  key_name      = var.key_name
+  vpc_security_group_ids = [var.vpc_sg_id]
 
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    private_key = file("C:/Users/Lenovo/Downloads/ajaymumbaikey.pem")
+    private_key = file("C:/Users/Lenovo/Downloads/ajaymumbaikey.pem") # Ensure the path to your private key is correct OR for ec2 instance you should copy key to /root/ and provide path : ~/keyname.pem
     host        = self.public_ip
   }
 
   provisioner "file" {
-    source      = "index.html"
+    source      = "index.html" # Ensure this file exists in the same directory OR for ec2 instance path : ./index.html
     destination = "/home/ubuntu/index.html"
   }
 
@@ -24,9 +24,8 @@ resource "aws_instance" "web" {
     inline = [
       "sudo apt update -y",
       "sudo apt install apache2 -y",
-      "sudo mkdir -p /var/www/html/",
+      # "sudo sed -i \"s/\\${hostname}/$(hostname)/g\" /home/ubuntu/index.html", # Optional: To replace a placeholder in index.html with the actual hostname
       "sudo mv /home/ubuntu/index.html /var/www/html/index.html",
-      "sudo chown www-data:www-data /var/www/html/index.html",
       "sudo systemctl restart apache2"
     ]
   }
@@ -35,8 +34,8 @@ resource "aws_instance" "web" {
     command = "echo The server IP is ${self.public_ip}"
   }
 
-
   tags = {
-    name = var.name_tag
+    Name = var.name_tag
+
   }
 }
