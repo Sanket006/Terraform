@@ -7,6 +7,7 @@ resource "aws_instance" "my_instance" {
   ami           = var.ami_id
   for_each      = var.instance_types
   instance_type = each.value
+  
   tags = {
     Name = "Instance-${each.key}"
     Env  = each.key

@@ -123,7 +123,7 @@ resource "aws_launch_template" "web_lt" {
   name = "web-launch-template"
 
   image_id      = "ami-123456789abcdef0"  # Replace with a valid AMI ID for ap-south-1
-  instance_type = "t2.micro"
+  instance_type = "t3.micro"
 
   network_interfaces {
     security_groups = [aws_security_group.ec2_sg.id]
