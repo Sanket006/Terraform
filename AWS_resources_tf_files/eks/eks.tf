@@ -14,68 +14,20 @@ provider "aws" {
 }
 
 # -------------------------
-# VPC
+# Default VPC
 # -------------------------
-resource "aws_vpc" "eks_vpc" {
-  cidr_block = "10.0.0.0/16"
+data "aws_vpc" "default_vpc" {
+  default = true
+}
 
-  tags = {
-    Name = "eks-vpc"
+
+data "aws_subnets" "default_subnet" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
   }
 }
 
-resource "aws_subnet" "eks_subnet_1" {
-  vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${var.region}a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "eks-subnet-1"
-  }
-}
-
-resource "aws_subnet" "eks_subnet_2" {
-  vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "${var.region}b"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "eks-subnet-2"
-  }
-}
-
-resource "aws_internet_gateway" "eks_igw" {
-  vpc_id = aws_vpc.eks_vpc.id
-
-  tags = {
-    Name = "eks-igw"
-  }
-}
-
-resource "aws_route_table" "eks_public_rt" {
-  vpc_id = aws_vpc.eks_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.eks_igw.id
-  }
-
-  tags = {
-    Name = "eks-public-rt"
-  }
-}
-
-resource "aws_route_table_association" "eks_subnet_1_assoc" {
-  subnet_id      = aws_subnet.eks_subnet_1.id
-  route_table_id = aws_route_table.eks_public_rt.id
-}
-
-resource "aws_route_table_association" "eks_subnet_2_assoc" {
-  subnet_id      = aws_subnet.eks_subnet_2.id
-  route_table_id = aws_route_table.eks_public_rt.id
-}
 
 # -------------------------
 # IAM Role for EKS Cluster
@@ -105,11 +57,12 @@ resource "aws_eks_cluster" "eks" {
   name     = var.cluster_name
   role_arn = aws_iam_role.eks_cluster_role.arn
 
+  access_config {
+    authentication_mode = "API"
+  }
+
   vpc_config {
-    subnet_ids = [
-      aws_subnet.eks_subnet_1.id,
-      aws_subnet.eks_subnet_2.id
-    ]
+    subnet_ids = data.aws_subnets.default.ids
   }
 
   depends_on = [
@@ -155,10 +108,7 @@ resource "aws_eks_node_group" "node_group" {
   cluster_name    = aws_eks_cluster.eks.name
   node_group_name = "eks-node-group"
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = [
-    aws_subnet.eks_subnet_1.id,
-    aws_subnet.eks_subnet_2.id
-  ]
+  subnet_ids    = data.aws_subnets.default.ids
 
   scaling_config {
     desired_size = 2

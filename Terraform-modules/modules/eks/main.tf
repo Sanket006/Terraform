@@ -1,7 +1,7 @@
 # -------------------------
 # VPC
 # -------------------------
-resource "aws_vpc" "this" {
+resource "aws_vpc" "vpc" {
   cidr_block = var.vpc_cidr
 
   tags = {
@@ -9,11 +9,15 @@ resource "aws_vpc" "this" {
   }
 }
 
-resource "aws_subnet" "this" {
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+resource "aws_subnet" "subnet" {
   count                   = length(var.subnet_cidrs)
-  vpc_id                  = aws_vpc.this.id
+  vpc_id                  = aws_vpc.vpc.id
   cidr_block              = var.subnet_cidrs[count.index]
-  availability_zone       = "${var.region}${count.index == 0 ? "a" : "b"}"
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
 
   tags = {
@@ -45,13 +49,14 @@ resource "aws_iam_role_policy_attachment" "cluster_policy" {
 # -------------------------
 # EKS Cluster
 # -------------------------
-resource "aws_eks_cluster" "this" {
+resource "aws_eks_cluster" "eks_cluster" {
   name     = var.cluster_name
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   vpc_config {
-    subnet_ids = aws_subnet.this[*].id
-  }
+  subnet_ids = aws_subnet.subnet[*].id
+}
+
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_policy
@@ -92,11 +97,11 @@ resource "aws_iam_role_policy_attachment" "ecr_policy" {
 # -------------------------
 # Managed Node Group
 # -------------------------
-resource "aws_eks_node_group" "this" {
-  cluster_name    = aws_eks_cluster.this.name
+resource "aws_eks_node_group" "node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
   node_group_name = "${var.cluster_name}-node-group"
   node_role_arn   = aws_iam_role.node_role.arn
-  subnet_ids      = aws_subnet.this[*].id
+  subnet_ids      = aws_subnet.subnet[*].id
 
   instance_types = [var.instance_type]
 
@@ -107,6 +112,10 @@ resource "aws_eks_node_group" "this" {
   }
 
   depends_on = [
-    aws_eks_cluster.this
+    aws_eks_cluster.eks_cluster,
+    aws_iam_role_policy_attachment.worker_policy,
+    aws_iam_role_policy_attachment.cni_policy,
+    aws_iam_role_policy_attachment.ecr_policy
   ]
 }
+
